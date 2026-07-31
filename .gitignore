@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+backend/__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual Environment
+venv/
+.venv/
+
+# Environment Variables
+.env
+.env.*
+
+# Databases (optional - keep only if you don't want to version them)
+copilot_metadata.db
+
+# Streamlit cache
+.streamlit/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
