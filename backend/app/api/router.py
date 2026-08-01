@@ -12,7 +12,6 @@ from app.services.db_executor import DatabaseExecutor
 from app.services.llm_service import LLMService
 from app.core.config import settings
 
-# Import Agents
 from app.agents.planner import PlannerAgent
 from app.agents.schema import SchemaAgent
 from app.agents.sql import SQLAgent
@@ -23,8 +22,6 @@ from app.agents.recommender import RecommendationAgent
 from app.agents.reporter import ReportAgent
 
 api_router = APIRouter()
-
-# --- PYDANTIC SCHEMAS ---
 
 class ConnectionCreate(BaseModel):
     name: str
@@ -92,9 +89,6 @@ class SettingsUpdate(BaseModel):
     app_mode: str
     OPENAI_api_key: Optional[str] = None
     openrouter_api_key: Optional[str] = None
-
-
-# --- DATABASE CONNECTIONS ROUTE ---
 
 @api_router.post("/connections", response_model=ConnectionResponse)
 async def create_connection(data: ConnectionCreate, db: AsyncSession = Depends(get_db)):
@@ -174,18 +168,13 @@ async def delete_connection(conn_id: int, db: AsyncSession = Depends(get_db)):
     await db.commit()
     return {"success": True, "message": "Connection deleted successfully."}
 
-
-# --- AGENT PIPELINE RUNNER ROUTE ---
-
 @api_router.post("/queries/execute", response_model=QueryHistoryResponse)
 async def execute_query_pipeline(req: QueryRequest, db: AsyncSession = Depends(get_db)):
-    # 1. Fetch connection details
     result = await db.execute(select(DatabaseConnection).filter(DatabaseConnection.id == req.connection_id))
     conn = result.scalar_one_or_none()
     if not conn:
         raise HTTPException(status_code=404, detail="Database connection parameters not found.")
 
-    # 2. Create history record
     history = QueryHistory(
         connection_id=conn.id,
         natural_language_query=req.natural_language_query,
@@ -197,20 +186,16 @@ async def execute_query_pipeline(req: QueryRequest, db: AsyncSession = Depends(g
     telemetry_logs = []
 
     try:
-        # A. Planner Agent
         planner = PlannerAgent()
         plan_res, planner_telemetry = await planner.execute(req.natural_language_query, conn.db_type)
         telemetry_logs.append((planner_telemetry, "planner"))
 
-        # B. Get DB Schema Info
         schema_info = DatabaseExecutor.get_schema_info(conn)
 
-        # C. Schema Selection Agent
         schema_agent = SchemaAgent()
         schema_res, schema_telemetry = await schema_agent.execute(req.natural_language_query, schema_info)
         telemetry_logs.append((schema_telemetry, "schema"))
 
-        # D. SQL Agent
         sql_agent = SQLAgent()
         sql_res, sql_telemetry = await sql_agent.execute(
             user_query=req.natural_language_query,
@@ -221,7 +206,6 @@ async def execute_query_pipeline(req: QueryRequest, db: AsyncSession = Depends(g
         telemetry_logs.append((sql_telemetry, "sql"))
         history.generated_sql = sql_res.generated_sql
 
-        # E. Validator Agent
         validator_agent = ValidatorAgent()
         val_res, validator_telemetry = await validator_agent.execute(sql_res.generated_sql)
         telemetry_logs.append((validator_telemetry, "validator"))
@@ -233,7 +217,6 @@ async def execute_query_pipeline(req: QueryRequest, db: AsyncSession = Depends(g
             await db.commit()
             return await format_query_response(history, telemetry_logs)
 
-        # F. Execute SQL Query
         rows, columns, db_err = DatabaseExecutor.execute_query(conn, val_res.sanitized_sql)
         if db_err:
             history.execution_status = "error"
@@ -245,19 +228,16 @@ async def execute_query_pipeline(req: QueryRequest, db: AsyncSession = Depends(g
         history.result_json = json.dumps(rows)
         history.columns_json = json.dumps(columns)
 
-        # G. Visualization Agent
         viz_agent = VisualizationAgent()
         viz_res, viz_telemetry = await viz_agent.execute(req.natural_language_query, columns, rows)
         telemetry_logs.append((viz_telemetry, "visualizer"))
         history.visualization_config = viz_res.model_dump_json()
 
-        # H. Analytics Agent
         analyst = AnalyticsAgent()
         analytics_res, analytics_telemetry = await analyst.execute(req.natural_language_query, columns, rows)
         telemetry_logs.append((analytics_telemetry, "analytics"))
         history.summary_markdown = analytics_res.summary
 
-        # I. Recommendation Agent
         recommender = RecommendationAgent()
         recommends_res, recommender_telemetry = await recommender.execute(
             user_query=req.natural_language_query,
@@ -267,7 +247,6 @@ async def execute_query_pipeline(req: QueryRequest, db: AsyncSession = Depends(g
         telemetry_logs.append((recommender_telemetry, "recommender"))
         history.recommendations_json = recommends_res.model_dump_json()
 
-        # J. Report Agent (Compile Report)
         reporter = ReportAgent()
         report_res, reporter_telemetry = await reporter.execute(
             user_query=req.natural_language_query,
@@ -277,10 +256,8 @@ async def execute_query_pipeline(req: QueryRequest, db: AsyncSession = Depends(g
         )
         telemetry_logs.append((reporter_telemetry, "reporter"))
 
-        # Mark query history as successful
         history.execution_status = "success"
         
-        # Save telemetry execution records to database
         await commit_telemetry(db, history.id, telemetry_logs)
         await db.commit()
 
@@ -310,7 +287,6 @@ async def commit_telemetry(db: AsyncSession, history_id: int, logs: List[Any]):
         db.add(log_db)
 
 async def format_query_response(history: QueryHistory, logs: List[Any]) -> QueryHistoryResponse:
-    # Convert logs parameter into return elements
     agent_responses = []
     for telemetry, name in logs:
         agent_responses.append(AgentLogResponse(
@@ -340,19 +316,14 @@ async def format_query_response(history: QueryHistory, logs: List[Any]) -> Query
         agent_logs=agent_responses
     )
 
-
-# --- GENERAL METRICS & OBSERVABILITY HISTORY ---
-
 @api_router.get("/queries/history", response_model=List[QueryHistoryResponse])
 async def get_query_history(db: AsyncSession = Depends(get_db)):
-    # Fetch history including eager loaded agent logs
     stmt = select(QueryHistory).order_by(desc(QueryHistory.created_at))
     result = await db.execute(stmt)
     histories = result.scalars().all()
     
     response = []
     for h in histories:
-        # Load agent logs explicitly
         logs_stmt = select(AgentExecutionLog).filter(AgentExecutionLog.query_history_id == h.id)
         logs_res = await db.execute(logs_stmt)
         logs = logs_res.scalars().all()
@@ -436,7 +407,6 @@ async def download_query_report(query_id: int, db: AsyncSession = Depends(get_db
     if not h:
         raise HTTPException(status_code=404, detail="Query record not found")
     
-    # Generate clean markdown file summary
     recs = []
     if h.recommendations_json:
         try:
@@ -486,9 +456,6 @@ async def get_all_agent_logs(db: AsyncSession = Depends(get_db)):
             logs=l.logs
         ) for l in logs
     ]
-
-
-# --- SYSTEM SETTINGS CONFIG ---
 
 @api_router.get("/settings", response_model=SettingsResponse)
 async def get_settings():
