@@ -18,10 +18,6 @@ class BaseAgent:
         self.name = name
 
     def estimate_cost(self, prompt_tokens: int, completion_tokens: int) -> float:
-        """
-        Estimates the dollar cost of the LLM execution.
-        Using a standard approximation (e.g. $0.15/1M tokens prompt, $0.60/1M tokens completion).
-        """
         prompt_cost = (prompt_tokens / 1_000_000) * 0.15
         completion_cost = (completion_tokens / 1_000_000) * 0.60
         return round(prompt_cost + completion_cost, 6)
@@ -39,7 +35,6 @@ class BaseAgent:
         end_time = time.time()
         elapsed_ms = int((end_time - start_time) * 1000)
         
-        # In simulation mode, let's inject mock token counts if they are 0
         if prompt_tokens == 0:
             import random
             prompt_tokens = random.randint(300, 700)
