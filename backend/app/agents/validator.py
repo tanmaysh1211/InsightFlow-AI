@@ -17,7 +17,6 @@ class ValidatorAgent(BaseAgent):
     async def execute(self, sql_query: str) -> Tuple[ValidatorResponse, AgentTelemetry]:
         start_time = time.time()
         
-        # 1. Local Python Static Check (Fast and deterministic)
         sanitized = re.sub(r'\s+', ' ', sql_query).strip()
         upper_query = sanitized.upper()
         
@@ -35,7 +34,6 @@ class ValidatorAgent(BaseAgent):
                     sanitized_sql=""
                 ), telemetry
 
-        # 2. LLM structural verification (checks syntax anomalies or illogical joins)
         system_prompt = (
             "You are the SQL Validator Agent. Your role is to examine a generated SQL query for:\n"
             "1. Syntax correctness.\n"
