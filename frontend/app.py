@@ -6,7 +6,6 @@ import plotly.graph_objects as go
 import json
 import time
 
-# Premium Page Config
 pd_st.set_page_config(
     page_title="InsightFlow-AI",
     page_icon="📊",
@@ -14,29 +13,24 @@ pd_st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Glassmorphic Dark styling injection
 pd_st.markdown("""
 <style>
-    /* Global Background Adjustments */
     .stApp {
         background-color: #020617;
         color: #f8fafc;
     }
     
-    /* Sidebar styling */
     [data-testid="stSidebar"] {
         background-color: #0f172a;
         border-right: 1px solid #1e293b;
     }
     
-    /* Premium Headers */
     h1, h2, h3, h4 {
         font-family: 'Inter', system-ui, sans-serif;
         font-weight: 700;
         letter-spacing: -0.025em;
     }
     
-    /* Glassmorphic boxes */
     div.glass-card {
         background-color: rgba(30, 41, 59, 0.35);
         border: 1px solid rgba(255, 255, 255, 0.05);
@@ -46,7 +40,6 @@ pd_st.markdown("""
         margin-bottom: 20px;
     }
     
-    /* Status spinners */
     div.stStatus {
         background-color: #0f172a;
         border: 1px solid #1e293b;
@@ -56,7 +49,6 @@ pd_st.markdown("""
 
 API_BASE_URL = "http://localhost:8000/api/v1"
 
-# Helper API Clients
 def get_connections():
     try:
         with httpx.Client() as client:
@@ -89,13 +81,11 @@ def get_settings():
     except Exception:
         return {"app_mode": "simulation", "OPENAI_api_key_configured": False, "openrouter_api_key_configured": False}
 
-# --- Session State Initialization ---
 if 'query_input' not in pd_st.session_state:
     pd_st.session_state.query_input = ""
 if 'active_query_id' not in pd_st.session_state:
     pd_st.session_state.active_query_id = None
 
-# --- Sidebar Navigation ---
 with pd_st.sidebar:
     pd_st.markdown("<div style='display: flex; align-items: center; gap: 10px; margin-bottom: 20px;'><h3>📊 InsightFlow-AI</h3></div>", unsafe_allow_html=True)
     
@@ -113,7 +103,6 @@ with pd_st.sidebar:
         ]
     )
     
-    # Server status check
     try:
         health_check = httpx.get("http://localhost:8000/", timeout=1.0)
         server_ok = health_check.status_code == 200
@@ -126,14 +115,12 @@ with pd_st.sidebar:
     pd_st.markdown(f"**System Status**: {'🟢 Online' if server_ok else '🔴 Offline'}")
     pd_st.markdown(f"**Pipeline Mode**: `{mode.upper()}`")
 
-# --- 1. DASHBOARD PAGE ---
 if page == "📊 Dashboard":
     pd_st.subheader("Observability & KPI Metrics")
     
     conns = get_connections()
     hist = get_history()
     
-    # Aggregation
     total_queries = len(hist)
     successes = len([q for q in hist if q.get("execution_status") == "success"])
     success_rate = round((successes / total_queries * 100)) if total_queries > 0 else 0
@@ -149,7 +136,6 @@ if page == "📊 Dashboard":
             
     avg_latency = round(sum_latency / total_queries) if total_queries > 0 else 0
 
-    # Grid Display
     c1, c2, c3, c4, c5 = pd_st.columns(5)
     c1.metric("Active Endpoints", len(conns))
     c2.metric("Total Queries Run", total_queries)
@@ -179,7 +165,6 @@ if page == "📊 Dashboard":
 
     with col_right:
         pd_st.markdown("#### Agent Telemetry Status")
-        # Observability charts
         agent_names = ["planner", "schema", "sql", "validator", "visualizer", "analytics", "recommender", "reporter"]
         
         telemetry_data = []
@@ -188,7 +173,6 @@ if page == "📊 Dashboard":
             
         pd_st.table(pd.DataFrame(telemetry_data))
 
-# --- 2. QUERY WORKSPACE PAGE ---
 elif page == "💬 Query Workspace":
     pd_st.subheader("Autonomous Multi-Agent Terminal")
     
@@ -200,7 +184,6 @@ elif page == "💬 Query Workspace":
         selected_conn_label = pd_st.selectbox("Select Target Connection Endpoint", list(conn_options.keys()))
         selected_conn_id = conn_options[selected_conn_label]
         
-        # Suggestions
         pd_st.markdown("**Suggested Questions:**")
         cs1, cs2, cs3, cs4 = pd_st.columns(4)
         if cs1.button("Show monthly revenue.", use_container_width=True):
@@ -212,7 +195,6 @@ elif page == "💬 Query Workspace":
         if cs4.button("Show revenue by category.", use_container_width=True):
             pd_st.session_state.query_input = "Show revenue by category."
             
-        # Terminal input
         query_text = pd_st.text_input(
             "Natural Language Business Request",
             value=pd_st.session_state.query_input,
@@ -239,7 +221,6 @@ elif page == "💬 Query Workspace":
                     pd_st.write(f"🔄 **{agent_label}**: {desc}")
                     time.sleep(0.5)
                 
-                # Fetch API details
                 try:
                     with httpx.Client(timeout=30.0) as client:
                         res = client.post(
@@ -256,7 +237,6 @@ elif page == "💬 Query Workspace":
                     status.update(label="API connection timeout", state="error")
                     pd_st.error(f"Error calling API server: {e}")
 
-        # --- Show Active Output Details ---
         if pd_st.session_state.active_query_id:
             try:
                 with httpx.Client() as client:
@@ -267,7 +247,6 @@ elif page == "💬 Query Workspace":
                     if q_data["execution_status"] != "success":
                         pd_st.error(f"Execution Error: {q_data['error_message']}")
                     else:
-                        # Output Tabs
                         t_chart, t_data, t_sql, t_insights, t_recs, t_telemetry = pd_st.tabs([
                             "📈 Visualization",
                             "📋 Data Table",
@@ -331,13 +310,11 @@ elif page == "💬 Query Workspace":
             except Exception as e:
                 pd_st.error(f"Error rendering query detail: {e}")
 
-# --- 3. CONNECTIONS PAGE ---
 elif page == "🔌 Connections":
     pd_st.subheader("Database Endpoints Link")
     
     conns = get_connections()
     
-    # Form Setup
     with pd_st.expander("🔗 Link New Database Endpoint", expanded=False):
         name = pd_st.text_input("Connection Name Label", placeholder="e.g. Sales Prod")
         db_type = pd_st.selectbox("Database Type", ["sqlite", "postgresql", "mysql", "sqlserver"])
@@ -374,7 +351,6 @@ elif page == "🔌 Connections":
             except Exception as e:
                 pd_st.error(f"Could not connect: {e}")
                 
-    # Quick connect SQLite default Demo DB
     if not conns:
         pd_st.info("No connections mapped. Connect to demo SQLite DB to populate workspace instantly.")
         if pd_st.button("Quick Link SQLite Demo DB"):
@@ -389,7 +365,6 @@ elif page == "🔌 Connections":
             except Exception as e:
                 pd_st.error(str(e))
                 
-    # List Connections
     pd_st.markdown("#### Saved Endpoints")
     for c in conns:
         with pd_st.container():
@@ -400,7 +375,6 @@ elif page == "🔌 Connections":
             else:
                 col_l.caption(f"Host: {c['host']} | Database: {c['database_name']}")
                 
-            # Actions
             btn_t = col_r.button("Test Connection", key=f"test_{c['id']}")
             btn_d = col_r.button("Remove Link", key=f"del_{c['id']}")
             
@@ -423,7 +397,6 @@ elif page == "🔌 Connections":
                     pd_st.error(str(e))
             pd_st.markdown("---")
 
-# --- 4. SQL VIEWER PAGE ---
 elif page == "📜 SQL Viewer":
     pd_st.subheader("SQL Inspector & Optimizer")
     
@@ -442,7 +415,6 @@ elif page == "📜 SQL Viewer":
         c_a, c_b = pd_st.columns(2)
         
         if c_a.button("Explain Query Logic"):
-            # Mock explain
             pd_st.markdown("#### Query Logic Breakdown")
             pd_st.info(
                 "1. Scans orders table filtering on Completed status.\n"
@@ -457,7 +429,6 @@ elif page == "📜 SQL Viewer":
                 "`CREATE INDEX idx_orders_status_date ON orders(status, order_date);`"
             )
 
-# --- 5. VIZ STUDIO PAGE ---
 elif page == "🎨 Viz Studio":
     pd_st.subheader("Visualization Studio")
     
@@ -475,7 +446,6 @@ elif page == "🎨 Viz Studio":
         viz_config = json.loads(q_data["visualization_config"])
         df = pd.DataFrame(rows)
         
-        # Options Configurator
         col_opt, col_plot = pd_st.columns([1, 2])
         
         with col_opt:
@@ -510,7 +480,6 @@ elif page == "🎨 Viz Studio":
                 
                 pd_st.plotly_chart(fig, use_container_width=True)
 
-# --- 6. AI INSIGHTS & ACTIONS PAGE ---
 elif page == "💡 AI Insights & Actions":
     pd_st.subheader("Anomalies & Business Strategies")
     
@@ -521,7 +490,6 @@ elif page == "💡 AI Insights & Actions":
     
     for q in hist:
         if q["execution_status"] == "success":
-            # Pull anomalies/stats
             if "revenue" in q["natural_language_query"].lower():
                 all_anoms.append({
                     "QueryId": f"#{q['id']}",
@@ -535,7 +503,6 @@ elif page == "💡 AI Insights & Actions":
                     "Severity": "HIGH"
                 })
             
-            # Pull recs
             try:
                 recs_j = json.loads(q["recommendations_json"])
                 for r in recs_j.get("recommendations", []):
@@ -567,7 +534,6 @@ elif page == "💡 AI Insights & Actions":
                     pd_st.write(r["Actionable"])
                     pd_st.caption(f"Estimated Impact: {r['Impact']}")
 
-# --- 7. REPORTS PAGE ---
 elif page == "📋 Reports":
     pd_st.subheader("Automated Executive Briefings")
     
@@ -581,7 +547,6 @@ elif page == "📋 Reports":
         selected_q_label = pd_st.selectbox("Select Report to Export", list(q_options.keys()))
         q_data = q_options[selected_q_label]
         
-        # Download Markdown file
         try:
             report_md = (
                 f"# InsightFlow-AI Executive Briefing\n"
@@ -604,11 +569,9 @@ elif page == "📋 Reports":
         except Exception as e:
             pd_st.error(str(e))
 
-# --- 8. AGENT LOGS & SETTINGS PAGE ---
 elif page == "🛠️ Agent Logs & Settings":
     pd_st.subheader("Developer Observability Console")
     
-    # 1. Settings section
     pd_st.markdown("### Settings Configuration")
     sys_settings = get_settings()
     
@@ -632,7 +595,6 @@ elif page == "🛠️ Agent Logs & Settings":
             
     pd_st.markdown("---")
     
-    # 2. Logs Console
     pd_st.markdown("### Agent Telemetry Trace Logs")
     logs = get_logs()
     
