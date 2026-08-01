@@ -20,14 +20,12 @@ class LLMService:
         Routes the call to OpenRouter/OPENAI if live mode is enabled and keys exist,
         otherwise falls back to a deterministic simulation engine.
         """
-        # If API keys exist and we are in live mode, try executing
         if settings.APP_MODE == "live" and (settings.OPENAI_API_KEY or settings.OPENROUTER_API_KEY):
             try:
                 return await cls._call_live_llm(system_prompt, user_prompt, response_model)
             except Exception as e:
                 print(f"Live LLM call failed, falling back to simulator. Error: {e}")
 
-        # Run simulated fallback engine
         return cls._run_simulation(agent_name, user_prompt, response_model)
 
     @classmethod
@@ -42,7 +40,6 @@ class LLMService:
             "Content-Type": "application/json"
         }
         
-        # Determine URL and Auth Header
         if settings.OPENAI_API_KEY:
             url = "https://api.OPENAI.com/openai/v1/chat/completions"
             headers["Authorization"] = f"Bearer {settings.OPENAI_API_KEY}"
@@ -50,12 +47,10 @@ class LLMService:
         else:
             url = "https://openrouter.ai/api/v1/chat/completions"
             headers["Authorization"] = f"Bearer {settings.OPENROUTER_API_KEY}"
-            # OpenRouter headers requirement
             headers["HTTP-Referer"] = "https://github.com/enterprise-ai-analytics-copilot"
             headers["X-Title"] = "Enterprise AI Analytics Copilot"
             model = "google/gemini-2.5-flash"
 
-        # If a pydantic response model is provided, enforce JSON output schema
         payload = {
             "model": model,
             "messages": [
@@ -67,7 +62,6 @@ class LLMService:
         
         if response_model:
             payload["response_format"] = {"type": "json_object"}
-            # Instruct LLM to follow schema in prompt
             payload["messages"][0]["content"] += f"\n\nYou must return a JSON object matching this schema:\n{json.dumps(response_model.model_json_schema())}"
 
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -77,7 +71,6 @@ class LLMService:
             content = res_data["choices"][0]["message"]["content"]
             
             if response_model:
-                # Clean code block indicators if any
                 clean_content = re.sub(r"^```json\s*", "", content, flags=re.IGNORECASE)
                 clean_content = re.sub(r"\s*```$", "", clean_content, flags=re.IGNORECASE).strip()
                 return response_model.model_validate_json(clean_content)
@@ -97,7 +90,6 @@ class LLMService:
         """
         q = user_prompt.lower()
         
-        # 1. PLANNER SIMULATION
         if agent_name == "planner":
             data = {
                 "intent": "revenue_analysis" if "revenue" in q or "sale" in q or "income" in q else "product_analysis",
@@ -107,7 +99,6 @@ class LLMService:
                 "workflow_steps": ["Analyze query", "Resolve schemas", "Generate executable SQL", "Verify safety", "Run and plot", "Draft recommendations"]
             }
             
-        # 2. SCHEMA AGENT SIMULATION
         elif agent_name == "schema":
             if "product" in q or "underperform" in q or "stock" in q:
                 tables = ["products", "orders"]
@@ -127,9 +118,7 @@ class LLMService:
                 "reasoning": f"Identified core entities related to: {user_prompt}. Minimum schema isolation pattern applied."
             }
             
-        # 3. SQL AGENT SIMULATION
         elif agent_name == "sql":
-            # Check SQL Dialect requested (typically SQLite for demo)
             sql = ""
             if "monthly" in q or "month" in q:
                 sql = (
@@ -203,7 +192,6 @@ class LLMService:
                 "dialect": "sqlite"
             }
             
-        # 4. VALIDATOR AGENT SIMULATION
         elif agent_name == "validator":
             # Check if query contains any bad strings
             is_valid = True
@@ -219,7 +207,6 @@ class LLMService:
                 "sanitized_sql": user_prompt.replace("SQL Query to validate:\n", "").strip()
             }
             
-        # 5. VISUALIZATION AGENT SIMULATION
         elif agent_name == "visualizer":
             chart_type = "bar"
             x_key = ""
@@ -258,7 +245,6 @@ class LLMService:
                 "colors": ["#3b82f6", "#10b981", "#f59e0b", "#ef4444"]
             }
             
-        # 6. ANALYTICS AGENT SIMULATION
         elif agent_name == "analytics":
             summary = "Analyzed recent trends in corporate operations."
             anomalies = []
@@ -282,7 +268,6 @@ class LLMService:
                 "anomalies_detected": anomalies
             }
             
-        # 7. RECOMMENDATION AGENT SIMULATION
         elif agent_name == "recommender":
             recs = []
             if "month" in q:
@@ -328,7 +313,6 @@ class LLMService:
                 "recommendations": recs
             }
             
-        # 8. REPORT AGENT SIMULATION
         elif agent_name == "reporter":
             data = {
                 "report_title": f"Executive Briefing: {user_prompt}",
@@ -348,7 +332,6 @@ class LLMService:
             data = {"status": "unsupported agent name"}
 
         if response_model:
-            # Parse dict into response model
             return response_model.model_validate(data)
         
         return json.dumps(data)
