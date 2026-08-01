@@ -8,14 +8,12 @@ def setup_db():
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    # Drop existing tables if any
     cursor.execute("DROP TABLE IF EXISTS payments;")
     cursor.execute("DROP TABLE IF EXISTS orders;")
     cursor.execute("DROP TABLE IF EXISTS inventory;")
     cursor.execute("DROP TABLE IF EXISTS products;")
     cursor.execute("DROP TABLE IF EXISTS customers;")
 
-    # 1. Create Customers
     cursor.execute("""
     CREATE TABLE customers (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,7 +25,6 @@ def setup_db():
     );
     """)
 
-    # 2. Create Products
     cursor.execute("""
     CREATE TABLE products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,7 +37,6 @@ def setup_db():
     );
     """)
 
-    # 3. Create Orders
     cursor.execute("""
     CREATE TABLE orders (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,7 +51,6 @@ def setup_db():
     );
     """)
 
-    # 4. Create Payments
     cursor.execute("""
     CREATE TABLE payments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,7 +62,6 @@ def setup_db():
     );
     """)
 
-    # 5. Create Inventory
     cursor.execute("""
     CREATE TABLE inventory (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -79,7 +73,6 @@ def setup_db():
     );
     """)
 
-    # Insert Mock Customers
     customers_data = [
         ("Acme Corp", "info@acme.com", "USA", "Enterprise", "2025-01-15"),
         ("Globex Corporation", "billing@globex.com", "Canada", "Enterprise", "2025-02-10"),
@@ -97,7 +90,6 @@ def setup_db():
         customers_data
     )
 
-    # Insert Mock Products
     products_data = [
         ("Enterprise Server S1", "Hardware", 1200.00, 800.00, 45, "2025-01-10"),
         ("Developer Laptop Pro", "Hardware", 2500.00, 1800.00, 25, "2025-01-10"),
@@ -115,7 +107,6 @@ def setup_db():
         products_data
     )
 
-    # Insert Inventory (for physical items)
     inventory_data = [
         (1, "TechDistributors Inc", "2025-12-01", 10),
         (2, "TechDistributors Inc", "2025-12-01", 5),
@@ -128,7 +119,6 @@ def setup_db():
         inventory_data
     )
 
-    # Insert Mock Orders & Payments (spanning multiple months in 2025/2026)
     order_dates = [
         "2025-08-10", "2025-08-15", "2025-09-02", "2025-09-18", "2025-09-29",
         "2025-10-05", "2025-10-12", "2025-10-22", "2025-11-04", "2025-11-15",
@@ -139,13 +129,12 @@ def setup_db():
 
     order_statuses = ["Completed", "Completed", "Completed", "Pending", "Cancelled"]
 
-    random.seed(42)  # For deterministic mock data
+    random.seed(42)  
     for i, date_str in enumerate(order_dates):
         customer_id = random.randint(1, 10)
         product_id = random.randint(1, 10)
         quantity = random.randint(1, 5)
         
-        # Get product price
         cursor.execute("SELECT price FROM products WHERE id = ?", (product_id,))
         price = cursor.fetchone()[0]
         total_amount = price * quantity
@@ -157,7 +146,6 @@ def setup_db():
         )
         order_id = cursor.lastrowid
 
-        # Insert Payment if status is Completed
         if status == "Completed":
             payment_method = random.choice(["Credit Card", "Bank Transfer", "ACH"])
             cursor.execute(
@@ -169,7 +157,6 @@ def setup_db():
     conn.close()
     print("Database setup complete.")
     
-    # Copy to backend directory if it exists
     import os
     import shutil
     if os.path.exists("backend"):
