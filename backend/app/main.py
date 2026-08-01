@@ -11,7 +11,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Enable CORS for frontend development
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow all origins in dev environment
@@ -20,7 +19,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register routes
 app.include_router(api_router, prefix="/api/v1")
 
 @app.on_event("startup")
